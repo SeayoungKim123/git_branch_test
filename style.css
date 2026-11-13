@@ -167,9 +167,36 @@ body {
   word-break: break-all;
 }
 
+.todo-date-wrap {
+  position: relative;
+  align-self: flex-start;
+}
+
 .todo-date {
+  border: 0;
+  padding: 0;
+  background: transparent;
   font-size: 12px;
   color: var(--muted);
+  cursor: pointer;
+}
+
+.todo-date:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* 달력 팝업 위치를 잡기 위한 input. 화면에는 보이지 않는다. */
+.todo-date-input {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .todo-item.is-done .todo-text {
