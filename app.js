@@ -3,6 +3,7 @@ const STORAGE_KEY = "todos";
 
 const form = document.getElementById("add-form");
 const input = document.getElementById("todo-input");
+const contentInput = document.getElementById("todo-content");
 const list = document.getElementById("todo-list");
 const summary = document.getElementById("summary");
 const empty = document.getElementById("empty");
@@ -11,15 +12,21 @@ const filterButtons = document.querySelectorAll(".filter");
 
 let todos = loadTodos();
 let currentFilter = "all";
+const expandedIds = new Set(); // '더보기'로 내용을 펼친 할 일 id (저장하지 않음)
 
 // 캘린더 뷰 상태
 let currentView = "list";
 let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let selectedDateKey = null; // "YYYY-MM-DD", 아래 toDateKey 정의 후 오늘로 초기화한다.
 
+// 예전 데이터는 text 하나만 있으므로 title로 옮기고 content는 빈 값으로 채운다.
+function normalizeTodo({ text, ...todo }) {
+  return { ...todo, title: todo.title ?? text ?? "", content: todo.content ?? "" };
+}
+
 function loadTodos() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    return (JSON.parse(localStorage.getItem(STORAGE_KEY)) || []).map(normalizeTodo);
   } catch {
     return [];
   }
@@ -29,7 +36,7 @@ function saveTodos() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
 }
 
-function addTodo(text) {
+function addTodo(title, content) {
   const now = Date.now();
   let createdAt = now;
 
@@ -40,7 +47,7 @@ function addTodo(text) {
     createdAt = new Date(yyyy, mm - 1, dd, time.getHours(), time.getMinutes()).getTime();
   }
 
-  todos.push({ id: now, text, done: false, createdAt });
+  todos.push({ id: now, title, content, done: false, createdAt });
   saveTodos();
   render();
 }
@@ -201,7 +208,7 @@ function createTodoItem(todo) {
 
   const text = document.createElement("span");
   text.className = "todo-text";
-  text.textContent = todo.text;
+  text.textContent = todo.title;
 
   // 날짜 텍스트를 누르면 숨겨진 date input의 달력을 연다.
   const dateWrap = document.createElement("span");
@@ -235,7 +242,18 @@ function createTodoItem(todo) {
 
   const body = document.createElement("div");
   body.className = "todo-body";
-  body.append(text, dateWrap);
+  body.append(text);
+
+  // 내용이 있으면 제목 아래에 표시한다. '더보기' 버튼은 렌더 후 넘침 여부를 재서 붙인다.
+  if (todo.content) {
+    const content = document.createElement("p");
+    content.className = "todo-content";
+    content.textContent = todo.content;
+    content.classList.toggle("is-clamped", !expandedIds.has(todo.id));
+    body.append(content);
+  }
+
+  body.append(dateWrap);
 
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
@@ -254,7 +272,7 @@ function createTodoItem(todo) {
     button.type = "button";
     button.className = `move-button ${className}`;
     button.textContent = icon;
-    button.setAttribute("aria-label", `${todo.text} ${label}`);
+    button.setAttribute("aria-label", `${todo.title} ${label}`);
     button.addEventListener("click", () => moveByStep(li, step));
     moveButtons.append(button);
   });
@@ -263,12 +281,39 @@ function createTodoItem(todo) {
   return li;
 }
 
+// 내용이 두 줄을 넘는 항목에만 '더보기/접기' 버튼을 붙인다.
+// 넘침 여부는 화면에 그려진 뒤에야 잴 수 있어 렌더 후에 호출한다.
+function updateContentToggles(listEl) {
+  listEl.querySelectorAll(".todo-item").forEach((item) => {
+    const content = item.querySelector(".todo-content");
+    if (!content) return;
+
+    const id = Number(item.dataset.id);
+    const isExpanded = expandedIds.has(id);
+    const overflows = content.scrollHeight > content.clientHeight + 1;
+    if (!isExpanded && !overflows) return;
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "content-toggle";
+    toggle.textContent = isExpanded ? "접기" : "더보기";
+    toggle.setAttribute("aria-expanded", String(isExpanded));
+    toggle.addEventListener("click", () => {
+      if (expandedIds.has(id)) expandedIds.delete(id);
+      else expandedIds.add(id);
+      render();
+    });
+    content.after(toggle);
+  });
+}
+
 function render() {
   const visibleTodos = getVisibleTodos();
 
   list.innerHTML = "";
   visibleTodos.forEach((todo) => list.appendChild(createTodoItem(todo)));
   updateMoveButtons(list);
+  updateContentToggles(list);
 
   const remaining = todos.filter((todo) => !todo.done).length;
   summary.textContent = `남은 할 일 ${remaining}개 / 전체 ${todos.length}개`;
@@ -279,11 +324,23 @@ function render() {
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  const text = input.value.trim();
-  if (!text) return;
-  addTodo(text);
+  const title = input.value.trim();
+  if (!title) {
+    input.focus();
+    return;
+  }
+  addTodo(title, contentInput.value.trim());
   input.value = "";
+  contentInput.value = "";
   input.focus();
+});
+
+// 내용 칸에서 Enter는 줄바꿈, Ctrl(⌘)+Enter는 추가.
+contentInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    form.requestSubmit();
+  }
 });
 
 filterButtons.forEach((button) => {
@@ -377,6 +434,7 @@ function renderCalendar() {
   dayList.innerHTML = "";
   selectedTodos.forEach((todo) => dayList.appendChild(createTodoItem(todo)));
   updateMoveButtons(dayList);
+  updateContentToggles(dayList);
   dayEmpty.hidden = selectedTodos.length > 0;
 }
 
@@ -389,6 +447,8 @@ function setView(view) {
   });
   listView.hidden = view !== "list";
   calendarView.hidden = view !== "calendar";
+  // 숨겨져 있던 목록은 내용 넘침을 잴 수 없었으므로, 보이게 된 뒤 다시 그린다.
+  render();
 }
 
 function moveMonth(offset) {
