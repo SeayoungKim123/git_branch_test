@@ -28,14 +28,23 @@
     </header>
 
     <form class="add-form" id="add-form">
-      <input
-        type="text"
-        id="todo-input"
-        placeholder="할 일을 입력하세요"
-        autocomplete="off"
-        maxlength="100"
-        aria-label="새 할 일"
-      />
+      <div class="add-fields">
+        <input
+          type="text"
+          id="todo-input"
+          placeholder="제목"
+          autocomplete="off"
+          maxlength="100"
+          aria-label="할 일 제목"
+        />
+        <textarea
+          id="todo-content"
+          placeholder="내용 (선택)"
+          rows="2"
+          maxlength="1000"
+          aria-label="할 일 내용"
+        ></textarea>
+      </div>
       <button type="submit">추가</button>
     </form>
 
