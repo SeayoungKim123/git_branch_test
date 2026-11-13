@@ -25,7 +25,8 @@ function saveTodos() {
 }
 
 function addTodo(text) {
-  todos.push({ id: Date.now(), text, done: false });
+  const now = Date.now();
+  todos.push({ id: now, text, done: false, createdAt: now });
   saveTodos();
   render();
 }
@@ -56,6 +57,15 @@ function getVisibleTodos() {
   return todos;
 }
 
+// 타임스탬프를 "2026.11.13" 형식으로 변환한다.
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}.${mm}.${dd}`;
+}
+
 function createTodoItem(todo) {
   const li = document.createElement("li");
   li.className = "todo-item" + (todo.done ? " is-done" : "");
@@ -70,6 +80,15 @@ function createTodoItem(todo) {
   text.className = "todo-text";
   text.textContent = todo.text;
 
+  // createdAt이 없는 기존 데이터는 생성 시각이 담긴 id로 대체한다.
+  const date = document.createElement("span");
+  date.className = "todo-date";
+  date.textContent = `${formatDate(todo.createdAt ?? todo.id)} 등록`;
+
+  const body = document.createElement("div");
+  body.className = "todo-body";
+  body.append(text, date);
+
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "delete-button";
@@ -77,7 +96,7 @@ function createTodoItem(todo) {
   deleteButton.setAttribute("aria-label", "삭제");
   deleteButton.addEventListener("click", () => deleteTodo(todo.id));
 
-  li.append(checkbox, text, deleteButton);
+  li.append(checkbox, body, deleteButton);
   return li;
 }
 
