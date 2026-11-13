@@ -12,6 +12,11 @@ const filterButtons = document.querySelectorAll(".filter");
 let todos = loadTodos();
 let currentFilter = "all";
 
+// 캘린더 뷰 상태
+let currentView = "list";
+let calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedDateKey = null; // "YYYY-MM-DD", 아래 toDateKey 정의 후 오늘로 초기화한다.
+
 function loadTodos() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -26,7 +31,16 @@ function saveTodos() {
 
 function addTodo(text) {
   const now = Date.now();
-  todos.push({ id: now, text, done: false, createdAt: now });
+  let createdAt = now;
+
+  // 캘린더 뷰에서는 선택한 날짜에 추가한다(시각은 현재 시각 유지).
+  if (currentView === "calendar") {
+    const [yyyy, mm, dd] = selectedDateKey.split("-").map(Number);
+    const time = new Date(now);
+    createdAt = new Date(yyyy, mm - 1, dd, time.getHours(), time.getMinutes()).getTime();
+  }
+
+  todos.push({ id: now, text, done: false, createdAt });
   saveTodos();
   render();
 }
@@ -154,6 +168,8 @@ function render() {
   const remaining = todos.filter((todo) => !todo.done).length;
   summary.textContent = `남은 할 일 ${remaining}개 / 전체 ${todos.length}개`;
   empty.hidden = visibleTodos.length > 0;
+
+  renderCalendar();
 }
 
 form.addEventListener("submit", (event) => {
@@ -174,6 +190,109 @@ filterButtons.forEach((button) => {
 });
 
 clearDoneButton.addEventListener("click", clearDone);
+
+// 캘린더 뷰. 날짜 기준은 항목의 날짜(createdAt)이다.
+const viewTabs = document.querySelectorAll(".view-tab");
+const listView = document.getElementById("list-view");
+const calendarView = document.getElementById("calendar-view");
+const calendarTitle = document.getElementById("calendar-title");
+const calendarGrid = document.getElementById("calendar-grid");
+const dayTitle = document.getElementById("day-title");
+const dayList = document.getElementById("day-list");
+const dayEmpty = document.getElementById("day-empty");
+
+selectedDateKey = toDateKey(Date.now());
+
+function groupTodosByDate() {
+  const groups = {};
+  todos.forEach((todo) => {
+    const key = toDateKey(getTodoTime(todo));
+    (groups[key] ||= []).push(todo);
+  });
+  return groups;
+}
+
+function createCalendarDay(year, month, day, dayTodos, todayKey) {
+  const key = toDateKey(new Date(year, month, day).getTime());
+  const isSelected = key === selectedDateKey;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "calendar-day";
+  button.classList.toggle("is-today", key === todayKey);
+  button.classList.toggle("is-selected", isSelected);
+  button.setAttribute("aria-pressed", String(isSelected));
+  button.setAttribute("aria-label", `${month + 1}월 ${day}일, 할 일 ${dayTodos.length}개`);
+
+  const number = document.createElement("span");
+  number.className = "day-number";
+  number.textContent = day;
+  button.append(number);
+
+  if (dayTodos.length > 0) {
+    const count = document.createElement("span");
+    count.className = "day-count";
+    count.textContent = `•${dayTodos.length}`;
+    count.classList.toggle("is-all-done", dayTodos.every((todo) => todo.done));
+    button.append(count);
+  }
+
+  button.addEventListener("click", () => {
+    selectedDateKey = key;
+    render();
+  });
+  return button;
+}
+
+function renderCalendar() {
+  const year = calendarMonth.getFullYear();
+  const month = calendarMonth.getMonth();
+  const groups = groupTodosByDate();
+  const todayKey = toDateKey(Date.now());
+
+  calendarTitle.textContent = `${year}년 ${month + 1}월`;
+  calendarGrid.innerHTML = "";
+
+  // 1일 앞의 빈 칸
+  const firstWeekday = new Date(year, month, 1).getDay();
+  for (let i = 0; i < firstWeekday; i++) {
+    calendarGrid.appendChild(document.createElement("span"));
+  }
+
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  for (let day = 1; day <= lastDate; day++) {
+    const key = toDateKey(new Date(year, month, day).getTime());
+    calendarGrid.appendChild(createCalendarDay(year, month, day, groups[key] || [], todayKey));
+  }
+
+  // 선택한 날짜의 할 일
+  const [, mm, dd] = selectedDateKey.split("-").map(Number);
+  const selectedTodos = groups[selectedDateKey] || [];
+  dayTitle.textContent = `${mm}월 ${dd}일 할 일`;
+  dayList.innerHTML = "";
+  selectedTodos.forEach((todo) => dayList.appendChild(createTodoItem(todo)));
+  dayEmpty.hidden = selectedTodos.length > 0;
+}
+
+function setView(view) {
+  currentView = view;
+  viewTabs.forEach((tab) => {
+    const isActive = tab.dataset.view === view;
+    tab.classList.toggle("is-active", isActive);
+    tab.setAttribute("aria-selected", String(isActive));
+  });
+  listView.hidden = view !== "list";
+  calendarView.hidden = view !== "calendar";
+}
+
+function moveMonth(offset) {
+  calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + offset, 1);
+  renderCalendar();
+}
+
+viewTabs.forEach((tab) => tab.addEventListener("click", () => setView(tab.dataset.view)));
+document.getElementById("prev-month").addEventListener("click", () => moveMonth(-1));
+document.getElementById("next-month").addEventListener("click", () => moveMonth(1));
 
 // 다크/라이트 모드. 초기 테마는 index.html <head>에서 먼저 적용된다.
 const THEME_KEY = "theme";
