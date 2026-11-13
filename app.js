@@ -75,6 +75,87 @@ function clearDone() {
   render();
 }
 
+// 순서 변경. 화면에 보이는 항목들의 새 순서(orderedIds)를 전체 배열에 반영한다.
+// 필터·날짜 때문에 보이지 않는 항목은 제자리를 지키고, 보이는 항목끼리만 자리를 바꾼다.
+function reorderVisible(orderedIds) {
+  const idSet = new Set(orderedIds);
+  const byId = new Map(todos.map((todo) => [todo.id, todo]));
+  let index = 0;
+  todos = todos.map((todo) => (idSet.has(todo.id) ? byId.get(orderedIds[index++]) : todo));
+  saveTodos();
+  render();
+}
+
+function getListIds(listEl) {
+  return [...listEl.children].map((item) => Number(item.dataset.id));
+}
+
+// ↑(step = -1) / ↓(step = 1) 버튼으로 한 칸 이동한다.
+function moveByStep(li, step) {
+  const listEl = li.parentElement;
+  const ids = getListIds(listEl);
+  const id = Number(li.dataset.id);
+  const from = ids.indexOf(id);
+  const to = from + step;
+  if (to < 0 || to >= ids.length) return;
+
+  [ids[from], ids[to]] = [ids[to], ids[from]];
+  reorderVisible(ids);
+
+  // 다시 그린 뒤에도 포커스를 유지해 키보드로 연속 이동할 수 있게 한다.
+  const moved = listEl.querySelector(`[data-id="${id}"]`);
+  const sameButton = moved.querySelector(step < 0 ? ".move-up" : ".move-down");
+  const otherButton = moved.querySelector(step < 0 ? ".move-down" : ".move-up");
+  (sameButton.disabled ? otherButton : sameButton).focus();
+}
+
+// 핸들을 잡고 끄는 동안 DOM 위치만 바꾸고, 손을 떼면 순서를 저장한다.
+// Pointer Events를 써서 마우스와 터치를 함께 지원한다.
+function startDrag(event, li) {
+  if (event.button !== 0) return;
+  const listEl = li.parentElement;
+  if (listEl.children.length < 2) return;
+  event.preventDefault();
+
+  const before = getListIds(listEl).join();
+  li.classList.add("is-dragging");
+  document.body.classList.add("is-reordering");
+
+  const onMove = (moveEvent) => {
+    const target = [...listEl.children].find((item) => {
+      if (item === li) return false;
+      const rect = item.getBoundingClientRect();
+      return moveEvent.clientY < rect.top + rect.height / 2;
+    });
+    if (target) listEl.insertBefore(li, target);
+    else listEl.appendChild(li);
+  };
+
+  const onEnd = () => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onEnd);
+    window.removeEventListener("pointercancel", onEnd);
+    li.classList.remove("is-dragging");
+    document.body.classList.remove("is-reordering");
+
+    const ids = getListIds(listEl);
+    if (ids.join() !== before) reorderVisible(ids);
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onEnd);
+  window.addEventListener("pointercancel", onEnd);
+}
+
+// 맨 위 항목의 ↑, 맨 아래 항목의 ↓는 비활성화한다.
+function updateMoveButtons(listEl) {
+  const items = [...listEl.children];
+  items.forEach((item, index) => {
+    item.querySelector(".move-up").disabled = index === 0;
+    item.querySelector(".move-down").disabled = index === items.length - 1;
+  });
+}
+
 function getVisibleTodos() {
   if (currentFilter === "active") return todos.filter((todo) => !todo.done);
   if (currentFilter === "done") return todos.filter((todo) => todo.done);
@@ -103,6 +184,14 @@ function getTodoTime(todo) {
 function createTodoItem(todo) {
   const li = document.createElement("li");
   li.className = "todo-item" + (todo.done ? " is-done" : "");
+  li.dataset.id = todo.id;
+
+  const handle = document.createElement("span");
+  handle.className = "drag-handle";
+  handle.textContent = "⠿";
+  handle.title = "끌어서 순서 변경";
+  handle.setAttribute("aria-hidden", "true"); // 키보드·스크린리더는 ↑↓ 버튼을 사용한다.
+  handle.addEventListener("pointerdown", (event) => startDrag(event, li));
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
@@ -155,7 +244,22 @@ function createTodoItem(todo) {
   deleteButton.setAttribute("aria-label", "삭제");
   deleteButton.addEventListener("click", () => deleteTodo(todo.id));
 
-  li.append(checkbox, body, deleteButton);
+  const moveButtons = document.createElement("div");
+  moveButtons.className = "move-buttons";
+  [
+    { className: "move-up", label: "위로 이동", icon: "▲", step: -1 },
+    { className: "move-down", label: "아래로 이동", icon: "▼", step: 1 },
+  ].forEach(({ className, label, icon, step }) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `move-button ${className}`;
+    button.textContent = icon;
+    button.setAttribute("aria-label", `${todo.text} ${label}`);
+    button.addEventListener("click", () => moveByStep(li, step));
+    moveButtons.append(button);
+  });
+
+  li.append(handle, checkbox, body, moveButtons, deleteButton);
   return li;
 }
 
@@ -164,6 +268,7 @@ function render() {
 
   list.innerHTML = "";
   visibleTodos.forEach((todo) => list.appendChild(createTodoItem(todo)));
+  updateMoveButtons(list);
 
   const remaining = todos.filter((todo) => !todo.done).length;
   summary.textContent = `남은 할 일 ${remaining}개 / 전체 ${todos.length}개`;
@@ -271,6 +376,7 @@ function renderCalendar() {
   dayTitle.textContent = `${mm}월 ${dd}일 할 일`;
   dayList.innerHTML = "";
   selectedTodos.forEach((todo) => dayList.appendChild(createTodoItem(todo)));
+  updateMoveButtons(dayList);
   dayEmpty.hidden = selectedTodos.length > 0;
 }
 
