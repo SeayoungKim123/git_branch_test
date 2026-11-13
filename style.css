@@ -7,6 +7,19 @@
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --danger: #dc2626;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1115;
+  --card: #181b21;
+  --text: #e6e8eb;
+  --muted: #9aa1ab;
+  --border: #2a2f37;
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --danger: #f87171;
+  color-scheme: dark;
 }
 
 * {
@@ -34,6 +47,27 @@ body {
   align-self: flex-start;
 }
 
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  border-color: var(--primary);
+}
+
 .app-header h1 {
   margin: 0;
   font-size: 24px;
@@ -56,6 +90,8 @@ body {
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 15px;
+  background: var(--card);
+  color: var(--text);
 }
 
 .add-form input:focus {
