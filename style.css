@@ -320,6 +320,62 @@ body {
   text-decoration: line-through;
 }
 
+/* 순서 변경 */
+.drag-handle {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 2px;
+  cursor: grab;
+  touch-action: none; /* 터치로 끌 때 화면 스크롤을 막는다. */
+  user-select: none;
+}
+
+.drag-handle:hover {
+  color: var(--text);
+}
+
+.todo-item.is-dragging {
+  opacity: 0.6;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+body.is-reordering,
+body.is-reordering * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.move-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.move-button {
+  width: 22px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.move-button:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--primary);
+}
+
+.move-button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
 .delete-button {
   border: 0;
   background: transparent;
