@@ -420,3 +420,7 @@ themeToggle.addEventListener("click", () => {
 applyTheme(document.documentElement.dataset.theme || "light");
 
 render();
+
+
+
+getUser();
