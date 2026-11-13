@@ -39,6 +39,16 @@ function toggleTodo(id) {
   render();
 }
 
+// value는 <input type="date">의 "YYYY-MM-DD" 값이다.
+function updateTodoDate(id, value) {
+  if (!value) return;
+  const [yyyy, mm, dd] = value.split("-").map(Number);
+  const createdAt = new Date(yyyy, mm - 1, dd).getTime();
+  todos = todos.map((todo) => (todo.id === id ? { ...todo, createdAt } : todo));
+  saveTodos();
+  render();
+}
+
 function deleteTodo(id) {
   todos = todos.filter((todo) => todo.id !== id);
   saveTodos();
@@ -66,6 +76,16 @@ function formatDate(timestamp) {
   return `${yyyy}.${mm}.${dd}`;
 }
 
+// 타임스탬프를 "2026-11-13" 형식(<input type="date"> 값, 날짜 키)으로 변환한다.
+function toDateKey(timestamp) {
+  return formatDate(timestamp).replaceAll(".", "-");
+}
+
+function getTodoTime(todo) {
+  // createdAt이 없는 기존 데이터는 생성 시각이 담긴 id로 대체한다.
+  return todo.createdAt ?? todo.id;
+}
+
 function createTodoItem(todo) {
   const li = document.createElement("li");
   li.className = "todo-item" + (todo.done ? " is-done" : "");
@@ -80,14 +100,39 @@ function createTodoItem(todo) {
   text.className = "todo-text";
   text.textContent = todo.text;
 
-  // createdAt이 없는 기존 데이터는 생성 시각이 담긴 id로 대체한다.
-  const date = document.createElement("span");
-  date.className = "todo-date";
-  date.textContent = `${formatDate(todo.createdAt ?? todo.id)} 등록`;
+  // 날짜 텍스트를 누르면 숨겨진 date input의 달력을 연다.
+  const dateWrap = document.createElement("span");
+  dateWrap.className = "todo-date-wrap";
+
+  const dateButton = document.createElement("button");
+  dateButton.type = "button";
+  dateButton.className = "todo-date";
+  dateButton.textContent = `${formatDate(getTodoTime(todo))} 등록`;
+  dateButton.title = "날짜 변경";
+  dateButton.setAttribute("aria-label", `날짜 변경, 현재 ${formatDate(getTodoTime(todo))}`);
+
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.className = "todo-date-input";
+  dateInput.value = toDateKey(getTodoTime(todo));
+  dateInput.tabIndex = -1;
+  dateInput.setAttribute("aria-hidden", "true");
+  dateInput.addEventListener("change", () => updateTodoDate(todo.id, dateInput.value));
+
+  dateButton.addEventListener("click", () => {
+    try {
+      dateInput.showPicker();
+    } catch {
+      dateInput.focus();
+      dateInput.click();
+    }
+  });
+
+  dateWrap.append(dateButton, dateInput);
 
   const body = document.createElement("div");
   body.className = "todo-body";
-  body.append(text, date);
+  body.append(text, dateWrap);
 
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
