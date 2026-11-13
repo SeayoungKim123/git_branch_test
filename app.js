@@ -130,4 +130,23 @@ filterButtons.forEach((button) => {
 
 clearDoneButton.addEventListener("click", clearDone);
 
+// 다크/라이트 모드. 초기 테마는 index.html <head>에서 먼저 적용된다.
+const THEME_KEY = "theme";
+const themeToggle = document.getElementById("theme-toggle");
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const isDark = theme === "dark";
+  themeToggle.textContent = isDark ? "☀️" : "🌙";
+  themeToggle.setAttribute("aria-label", isDark ? "라이트 모드로 전환" : "다크 모드로 전환");
+}
+
+themeToggle.addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
+applyTheme(document.documentElement.dataset.theme || "light");
+
 render();

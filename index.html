@@ -5,12 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>할 일 관리</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    // 화면이 그려지기 전에 테마를 적용해 깜빡임을 막는다.
+    (function () {
+      var theme;
+      try { theme = localStorage.getItem("theme"); } catch (e) {}
+      if (theme !== "light" && theme !== "dark") {
+        theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
 </head>
 <body>
   <main class="app">
     <header class="app-header">
-      <h1>할 일 관리</h1>
-      <p class="summary" id="summary">남은 할 일 0개</p>
+      <div>
+        <h1>할 일 관리</h1>
+        <p class="summary" id="summary">남은 할 일 0개</p>
+      </div>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="다크 모드로 전환">🌙</button>
     </header>
 
     <form class="add-form" id="add-form">
